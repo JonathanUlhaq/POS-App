@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -19,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.dantsu.escposprinter.connection.bluetooth.BluetoothConnection
+import com.dantsu.escposprinter.connection.bluetooth.BluetoothPrintersConnections
 import com.example.posapp.ui.theme.POSAppTheme
 import com.example.posapp.utils.BluetoothPrint
 import com.example.posapp.view.MainView
@@ -32,6 +35,9 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val connection:BluetoothConnection? = BluetoothPrintersConnections.selectFirstPaired()
+
         val bluetoothPermissions =
             // Checks if the device has Android 12 or above
 
@@ -67,8 +73,12 @@ class MainActivity : ComponentActivity() {
                         ActivityResultContracts.StartActivityForResult()
                     ) {
                         if (it.resultCode == Activity.RESULT_OK) {
-                            Log.d("bluetoothLauncher", "Success")
-                            printer.print()
+                            if (connection != null) {
+                                Log.d("bluetoothLauncher", "Success")
+                                printer.print()
+                            } else {
+                                Toast.makeText(this,"ERROR: Tidak ada koneksi printer",Toast.LENGTH_SHORT).show()
+                            }
                         } else {
                             Log.w("bluetoothLauncher", "Failed")
                         }
@@ -87,7 +97,12 @@ class MainActivity : ComponentActivity() {
                         if (bluetoothPermissions.allPermissionsGranted) {
                             if (bluetoothAdapter?.isEnabled == true) {
                                 // Bluetooth is on print the receipt
-                                printer.print()
+                                if (connection != null) {
+                                    Log.d("bluetoothLauncher", "Success")
+                                    printer.print()
+                                } else {
+                                    Toast.makeText(this,"ERROR: Tidak ada koneksi printer",Toast.LENGTH_SHORT).show()
+                                }
                             } else {
                                 // Bluetooth is off, ask user to turn it on
                                 enableBluetoothContract.launch(enableBluetoothIntent)

@@ -22,9 +22,7 @@ class BluetoothPrint (
             32
         )
         val formattedText = formatText(printer)
-        printer.printFormattedText(formattedText).let {
-            Log.d("Berhasil","Di Print")
-        }
+        printer.printFormattedText(formattedText)
 
     }
 
