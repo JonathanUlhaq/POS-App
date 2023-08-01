@@ -20,15 +20,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.dantsu.escposprinter.connection.bluetooth.BluetoothConnection
-import com.dantsu.escposprinter.connection.bluetooth.BluetoothPrintersConnections
+
 import com.example.posapp.ui.theme.POSAppTheme
-import com.example.posapp.utils.BluetoothPrint
+//import com.example.posapp.utils.BluetoothPrint
 import com.example.posapp.view.MainView
 import com.example.posapp.view.home.HomeView
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.mazenrashed.printooth.Printooth
+import com.mazenrashed.printooth.data.printable.ImagePrintable
+import com.mazenrashed.printooth.data.printable.Printable
+import com.mazenrashed.printooth.data.printable.RawPrintable
+import com.mazenrashed.printooth.data.printable.TextPrintable
+import com.mazenrashed.printooth.data.printer.DefaultPrinter
+import com.mazenrashed.printooth.ui.ScanningActivity
+import com.mazenrashed.printooth.utilities.Printing
+import com.mazenrashed.printooth.utilities.PrintingCallback
+
 import dagger.hilt.android.AndroidEntryPoint
+
+private var printing: Printing? = null
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -36,86 +47,197 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val connection:BluetoothConnection? = BluetoothPrintersConnections.selectFirstPaired()
+//        val connection: BluetoothConnection? = BluetoothPrintersConnections.selectFirstPaired()
+        if (Printooth.hasPairedPrinter()) {
+            printing = Printooth.printer()
+        }
+
 
         val bluetoothPermissions =
             // Checks if the device has Android 12 or above
 
-        setContent {
-            val bluetoothPermissions =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                rememberMultiplePermissionsState(
-                    permissions = listOf(
-                        android.Manifest.permission.BLUETOOTH,
-                        android.Manifest.permission.BLUETOOTH_ADMIN,
-                        android.Manifest.permission.BLUETOOTH_CONNECT,
-                        android.Manifest.permission.BLUETOOTH_SCAN,
-                    )
-                )
-            } else {
-                rememberMultiplePermissionsState(
-                    permissions = listOf(
-                        android.Manifest.permission.BLUETOOTH,
-                        android.Manifest.permission.BLUETOOTH_ADMIN,
-                    )
-                )
-            }
+            setContent {
+                val bluetoothPermissions =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        rememberMultiplePermissionsState(
+                            permissions = listOf(
+                                android.Manifest.permission.BLUETOOTH,
+                                android.Manifest.permission.BLUETOOTH_ADMIN,
+                                android.Manifest.permission.BLUETOOTH_CONNECT,
+                                android.Manifest.permission.BLUETOOTH_SCAN,
+                            )
+                        )
+                    } else {
+                        rememberMultiplePermissionsState(
+                            permissions = listOf(
+                                android.Manifest.permission.BLUETOOTH,
+                                android.Manifest.permission.BLUETOOTH_ADMIN,
+                            )
+                        )
+                    }
 
-            POSAppTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colors.background
-                ) {
-                    val printer = BluetoothPrint(this)
-
-                    val enableBluetoothContract = rememberLauncherForActivityResult(
-                        ActivityResultContracts.StartActivityForResult()
+                POSAppTheme {
+                    // A surface container using the 'background' color from the theme
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colors.background
                     ) {
-                        if (it.resultCode == Activity.RESULT_OK) {
-                            if (connection != null) {
-                                Log.d("bluetoothLauncher", "Success")
-                                printer.print()
+//                    val printer = BluetoothPrint(this)
+
+                        val enableBluetoothContract = rememberLauncherForActivityResult(
+                            ActivityResultContracts.StartActivityForResult()
+                        ) {
+                            if (it.resultCode == Activity.RESULT_OK) {
+                                initListeners()
+//                            if (connection != null) {
+//                                Log.d("bluetoothLauncher", "Success")
+//                                printer.print()
+//                            } else {
+//                                Toast.makeText(this,"ERROR: Tidak ada koneksi printer",Toast.LENGTH_SHORT).show()
+//                            }
                             } else {
-                                Toast.makeText(this,"ERROR: Tidak ada koneksi printer",Toast.LENGTH_SHORT).show()
+                                Log.w("bluetoothLauncher", "Failed")
                             }
-                        } else {
-                            Log.w("bluetoothLauncher", "Failed")
                         }
-                    }
 
-                    val enableBluetoothIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                        val enableBluetoothIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
 
-                    val bluetoothManager = remember {
-                        this.getSystemService(BluetoothManager::class.java)
-                    }
-                    val bluetoothAdapter: BluetoothAdapter? = remember {
-                        bluetoothManager.adapter
-                    }
+                        val bluetoothManager = remember {
+                            this.getSystemService(BluetoothManager::class.java)
+                        }
+                        val bluetoothAdapter: BluetoothAdapter? = remember {
+                            bluetoothManager.adapter
+                        }
 
-                    MainView() {
-                        if (bluetoothPermissions.allPermissionsGranted) {
-                            if (bluetoothAdapter?.isEnabled == true) {
-                                // Bluetooth is on print the receipt
-                                if (connection != null) {
-                                    Log.d("bluetoothLauncher", "Success")
-                                    printer.print()
+                        MainView() {
+                            if (bluetoothPermissions.allPermissionsGranted) {
+                                if (bluetoothAdapter?.isEnabled == true) {
+                                    initListeners()
+                                    // Bluetooth is on print the receipt
+//                                if (connection != null) {
+//                                    Log.d("bluetoothLauncher", "Success")
+//                                    printer.print()
+//                                } else {
+//                                    Toast.makeText(this,"ERROR: Tidak ada koneksi printer",Toast.LENGTH_SHORT).show()
+//                                }
                                 } else {
-                                    Toast.makeText(this,"ERROR: Tidak ada koneksi printer",Toast.LENGTH_SHORT).show()
+                                    // Bluetooth is off, ask user to turn it on
+                                    enableBluetoothContract.launch(enableBluetoothIntent)
                                 }
                             } else {
-                                // Bluetooth is off, ask user to turn it on
-                                enableBluetoothContract.launch(enableBluetoothIntent)
+                                Log.e("Error", "Print ERROR")
                             }
-                        } else {
-                            Log.e("Error","Print ERROR")
                         }
-                    }
                     }
                 }
             }
+    }
+
+    private fun initListeners() {
+
+
+        if (!Printooth.hasPairedPrinter())
+            Toast.makeText(this@MainActivity,"Hubungkan ke printer",Toast.LENGTH_SHORT).show()
+        else printDetails()
+
+
+        /* callback from printooth to get printer process */
+        printing?.printingCallback = object : PrintingCallback {
+            override fun connectingWithPrinter() {
+                Toast.makeText(this@MainActivity, "Connecting with printer", Toast.LENGTH_SHORT)
+                    .show()
+            }
+
+            override fun printingOrderSentSuccessfully() {
+                Toast.makeText(this@MainActivity, "Order sent to printer", Toast.LENGTH_SHORT)
+                    .show()
+            }
+
+            override fun connectionFailed(error: String) {
+                Toast.makeText(this@MainActivity, "Failed to connect printer", Toast.LENGTH_SHORT)
+                    .show()
+            }
+
+            override fun onError(error: String) {
+                Toast.makeText(this@MainActivity, error, Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onMessage(message: String) {
+                Toast.makeText(this@MainActivity, "Message: $message", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun disconnected() {
+                Toast.makeText(this@MainActivity, "Disconnected Printer", Toast.LENGTH_SHORT).show()
+            }
+
         }
     }
+
+    private fun printDetails() {
+        val printables = getSomePrintables()
+        printing?.print(printables)
+    }
+
+    /* Customize your printer here with text, logo and QR code */
+    private fun getSomePrintables() = ArrayList<Printable>().apply {
+
+        add(RawPrintable.Builder(byteArrayOf(27, 100, 4)).build()) // feed lines example in raw mode
+
+
+        //logo
+//            add(ImagePrintable.Builder(R.drawable.bold, resources)
+//                    .setAlignment(DefaultPrinter.ALIGNMENT_CENTER)
+//                    .build())
+
+
+        add(
+            TextPrintable.Builder()
+                .setText("Printer")
+                .setLineSpacing(DefaultPrinter.LINE_SPACING_60)
+                .setAlignment(DefaultPrinter.ALIGNMENT_CENTER)
+                .setFontSize(DefaultPrinter.FONT_SIZE_LARGE)
+                .setEmphasizedMode(DefaultPrinter.EMPHASIZED_MODE_BOLD)
+                .setUnderlined(DefaultPrinter.UNDERLINED_MODE_OFF)
+                .setNewLinesAfter(1)
+                .build()
+        )
+
+
+        add(
+            TextPrintable.Builder()
+                .setText("TID: 1111123322")
+                .setCharacterCode(DefaultPrinter.CHARCODE_PC1252)
+                .setNewLinesAfter(1)
+                .build()
+        )
+
+
+        add(
+            TextPrintable.Builder()
+                .setText("Hello World")
+                .setAlignment(DefaultPrinter.ALIGNMENT_RIGHT)
+                .setEmphasizedMode(DefaultPrinter.EMPHASIZED_MODE_BOLD)
+                .setUnderlined(DefaultPrinter.UNDERLINED_MODE_ON)
+                .setNewLinesAfter(1)
+                .build()
+        )
+
+        add(RawPrintable.Builder(byteArrayOf(27, 100, 4)).build())
+
+    }
+
+
+    /* Inbuilt activity to pair device with printer or select from list of pair bluetooth devices */
+    var resultLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == ScanningActivity.SCANNING_FOR_PRINTER && result.resultCode == Activity.RESULT_OK) {
+                // There are no request codes
+//            val intent = result.data
+                printDetails()
+            }
+        }
+
+}
 
 
 @Composable
