@@ -137,7 +137,12 @@ class MainActivity : ComponentActivity() {
 
 
         if (!Printooth.hasPairedPrinter())
-            Toast.makeText(this@MainActivity,"Hubungkan ke printer",Toast.LENGTH_SHORT).show()
+            resultLauncher.launch(
+                Intent(
+                    this@MainActivity,
+                    ScanningActivity::class.java
+                )
+            )
         else printDetails()
 
 
